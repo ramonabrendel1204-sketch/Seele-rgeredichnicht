@@ -2,274 +2,239 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Horror MÄDN - Pakt der Seelen</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horror MÄDN</title>
+    <!-- Externe Bibliotheken -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Firebase Legacy Scripts für maximale Kompatibilität -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Creepster&family=Nosifer&display=swap');
-        
-        body { margin: 0; overflow: hidden; background: #050505; color: #ddd; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; background: #000; color: #f00; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         .nosifer { font-family: 'Nosifer', cursive; }
-        .horror-font { font-family: 'Creepster', cursive; }
+        .horror { font-family: 'Creepster', cursive; }
         
-        .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; z-index: 100; background: black; }
+        .screen {
+            position: fixed; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 1000;
+            background: radial-gradient(circle, #1a0000 0%, #000 100%);
+            padding: 20px;
+        }
         .hidden { display: none !important; }
 
-        .menu-btn {
-            background: rgba(20, 0, 0, 0.9);
-            border: 2px solid #400;
-            padding: 2rem;
-            width: 100%;
-            max-width: 300px;
-            cursor: pointer;
-            transition: 0.3s;
-            text-align: center;
+        .btn-main {
+            background: #400; border: 2px solid #800; padding: 20px;
+            width: 100%; max-width: 300px; cursor: pointer; transition: 0.3s;
+            text-align: center; margin: 10px; font-family: 'Nosifer'; font-size: 0.8rem;
         }
-        .menu-btn:hover { border-color: #f00; box-shadow: 0 0 20px #800; transform: scale(1.02); }
-
-        .btn-horror {
-            background: #800;
-            color: white;
-            padding: 12px 24px;
-            font-family: 'Nosifer', cursive;
-            font-size: 0.8rem;
-            cursor: pointer;
-            border: none;
+        .btn-main:hover { background: #800; border-color: #f00; box-shadow: 0 0 20px #f00; }
+        
+        .game-ui {
+            position: fixed; inset: 0; z-index: 500; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between; padding: 20px;
         }
-        .btn-horror:hover { background: #b00; box-shadow: 0 0 15px #f00; }
-        .btn-horror:disabled { opacity: 0.3; cursor: not-allowed; }
-
-        #debug-console { position: fixed; bottom: 10px; left: 10px; font-size: 10px; color: #444; pointer-events: none; z-index: 1000; }
-        #ui-game { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; pointer-events: none; }
         .interactive { pointer-events: auto; }
+        
+        #dice {
+            width: 80px; height: 80px; background: #111; border: 3px solid #600;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; border-radius: 10px; cursor: pointer;
+        }
+        .can-roll { animation: pulse 1s infinite; border-color: #f00 !important; }
+        @keyframes pulse { 50% { transform: scale(1.1); } }
     </style>
 </head>
 <body>
 
-    <div id="debug-console">System bereit...</div>
-
-    <!-- 1. HAUPTMENÜ -->
-    <div id="screen-menu" class="screen">
-        <h1 class="nosifer text-red-600 text-5xl mb-12 text-center">HORROR MÄDN</h1>
-        <div class="flex flex-col md:flex-row gap-6 w-full justify-center items-center">
-            <div id="mode-solo" class="menu-btn">
-                <h2 class="nosifer text-red-500 mb-2">SOLO</h2>
-                <p class="text-xs text-zinc-500 uppercase">Gegen 3 Dämonen</p>
-            </div>
-            <div id="mode-multi" class="menu-btn">
-                <h2 class="nosifer text-red-500 mb-2">MULTI</h2>
-                <p class="text-xs text-zinc-500 uppercase">Online Pakt</p>
-            </div>
-        </div>
+    <!-- 1. Modus Auswahl -->
+    <div id="scr-mode" class="screen">
+        <h1 class="nosifer text-5xl mb-12 text-center text-red-600">HORROR MÄDN</h1>
+        <div id="btn-solo" class="btn-main">EINZELHAFT (Solo)</div>
+        <div id="btn-multi" class="btn-main">BLUTSPAKT (Online)</div>
     </div>
 
-    <!-- 2. AUTH / NAME -->
-    <div id="screen-auth" class="screen hidden">
-        <h2 class="nosifer text-red-600 mb-6">NAME ANGEBEN</h2>
-        <input type="text" id="name-input" class="bg-zinc-900 border-2 border-zinc-700 p-4 text-white text-center text-xl mb-6 outline-none focus:border-red-600" placeholder="DEIN NAME..." maxlength="12">
-        <button id="auth-confirm" class="btn-horror">BESTÄTIGEN</button>
+    <!-- 2. Name Eingeben -->
+    <div id="scr-name" class="screen hidden">
+        <h2 class="nosifer mb-6">DEIN NAME</h2>
+        <input type="text" id="inp-name" class="bg-black border-2 border-red-900 p-4 text-white text-center text-xl mb-6 outline-none w-full max-w-xs" placeholder="..." maxlength="12">
+        <div id="btn-confirm" class="btn-main">BESTÄTIGEN</div>
     </div>
 
-    <!-- 3. LOBBY -->
-    <div id="screen-lobby" class="screen hidden">
-        <h2 class="nosifer text-red-700 mb-10">LOBBY</h2>
-        <div id="lobby-list" class="flex gap-4 mb-10"></div>
-        <button id="lobby-start" class="btn-horror hidden">RITUAL STARTEN</button>
-        <p id="lobby-msg" class="horror-font text-zinc-500 text-xl mt-4">Warte auf Seelen...</p>
+    <!-- 3. Lobby -->
+    <div id="scr-lobby" class="screen hidden">
+        <h2 class="nosifer mb-10">LOBBY</h2>
+        <div id="lobby-slots" class="flex gap-4 mb-10"></div>
+        <div id="btn-start" class="btn-main hidden">RITUAL STARTEN</div>
+        <p class="horror text-xl text-zinc-500">Warten auf Seelen...</p>
     </div>
 
-    <!-- 4. IN-GAME -->
-    <div id="ui-game" class="hidden">
-        <div class="flex justify-between items-start interactive">
-            <div id="player-list-ui" class="space-y-2 bg-black/60 p-4 rounded border border-zinc-800"></div>
-            <div id="game-log" class="text-[10px] text-zinc-500 italic max-w-[150px]">Welt geladen.</div>
+    <!-- 4. Game UI -->
+    <div id="scr-game" class="game-ui hidden">
+        <div class="flex justify-between interactive">
+            <div id="player-stats" class="bg-black/80 p-4 border border-red-900 rounded"></div>
+            <div id="log" class="text-[10px] text-zinc-500 max-w-[150px] italic">Initialisiere...</div>
         </div>
         <div class="flex flex-col items-center mb-10 interactive">
-            <div id="dice-box" class="w-20 h-20 bg-zinc-900 border-4 border-zinc-800 rounded-xl flex items-center justify-center text-3xl nosifer text-red-600 cursor-pointer">?</div>
-            <p id="dice-hint" class="horror-font text-red-700 mt-2">DEIN ZUG</p>
+            <div id="dice" class="nosifer text-red-600">?</div>
+            <p id="turn-hint" class="horror text-red-700 mt-2">DEIN ZUG</p>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, updateDoc, onSnapshot, getDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-
-        // Firebase Config
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'horror-maedn-v7';
-
-        let state = {
-            mode: null, // 'solo' oder 'multi'
-            userId: 'guest-' + Math.random().toString(36).substr(2, 5),
-            myName: '',
-            game: null,
-            mySlot: -1
-        };
+    <script>
+        // --- GLOBALE VARIABLEN ---
+        let gameMode = null;
+        let myName = "Unbekannter";
+        let userId = "user_" + Math.random().toString(36).substr(2, 9);
+        let mySlot = 0;
+        let gameState = { active: false, slots: [null,null,null,null], currentPlayer: 0, lastDice: 0, log: "Start" };
+        let db = null;
+        let docRef = null;
 
         const PLAYERS = [
-            { color: "#ffffff", label: "Geister" },
-            { color: "#00f0ff", label: "Bibeln" },
-            { color: "#bc13fe", label: "Schädel" },
-            { color: "#ff0033", label: "Kreuze" }
+            { name: "Geister", color: "#ffffff" },
+            { name: "Bibeln", color: "#00f0ff" },
+            { name: "Schädel", color: "#bc13fe" },
+            { name: "Kreuze", color: "#ff0033" }
         ];
 
-        function log(msg) { document.getElementById('debug-console').innerText = msg; console.log(msg); }
-
-        // --- NAVIGATION ---
-        document.getElementById('mode-solo').addEventListener('click', () => {
-            state.mode = 'solo';
-            showScreen('screen-auth');
-        });
-
-        document.getElementById('mode-multi').addEventListener('click', () => {
-            state.mode = 'multi';
-            showScreen('screen-auth');
-        });
-
-        document.getElementById('auth-confirm').addEventListener('click', async () => {
-            const name = document.getElementById('name-input').value.trim();
-            if (!name) return;
-            state.myName = name;
-            log("Name gesetzt: " + name);
-
-            if (state.mode === 'solo') {
-                startSolo();
-            } else {
-                startMulti();
-            }
-        });
-
-        function showScreen(id) {
-            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+        // --- HILFSFUNKTIONEN ---
+        function show(id) {
+            document.querySelectorAll('.screen, .game-ui').forEach(el => el.classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
         }
 
-        // --- SOLO LOGIC ---
-        function startSolo() {
-            log("Solo-Modus gestartet");
-            state.game = {
-                active: true,
-                slots: [{ uid: 'me', name: state.myName }, null, null, null],
-                currentPlayer: 0,
-                lastDice: 0,
-                log: "Du bist allein in der Dunkelheit."
+        // --- INIT ---
+        window.onload = () => {
+            console.log("App geladen");
+            
+            // Firebase Setup (Legacy Style)
+            try {
+                const config = JSON.parse(__firebase_config);
+                firebase.initializeApp(config);
+                db = firebase.firestore();
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'horror-maedn-ultimate';
+                docRef = db.collection('artifacts').doc(appId).collection('public').doc('globalState');
+            } catch (e) {
+                console.error("Firebase blockiert, nur Solo möglich", e);
+            }
+
+            // Event Listener
+            document.getElementById('btn-solo').onclick = () => { gameMode = 'solo'; show('scr-name'); };
+            document.getElementById('btn-multi').onclick = () => { gameMode = 'multi'; show('scr-name'); };
+            
+            document.getElementById('btn-confirm').onclick = () => {
+                const val = document.getElementById('inp-name').value.trim();
+                if (val) myName = val;
+                
+                if (gameMode === 'solo') {
+                    startSolo();
+                } else {
+                    startMulti();
+                }
             };
-            state.mySlot = 0;
-            showScreen('ui-game'); // Falls ui-game keine .screen klasse hat:
-            document.getElementById('screen-auth').classList.add('hidden');
-            document.getElementById('ui-game').classList.remove('hidden');
-            refreshGameUI();
+        };
+
+        // --- SPIEL LOGIK ---
+        function startSolo() {
+            gameState.slots[0] = { uid: userId, name: myName };
+            mySlot = 0;
+            gameState.active = true;
+            renderGame();
+            show('scr-game');
         }
 
-        // --- MULTI LOGIC ---
         async function startMulti() {
-            log("Verbinde mit Pakt...");
+            if (!db) return alert("Multiplayer nicht verfügbar (Firebase blockiert)");
+            
             try {
-                const cred = await signInAnonymously(auth);
-                state.userId = cred.user.uid;
-                
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'globalState');
-                
-                // Init Doc if not exists
-                const snap = await getDoc(docRef);
-                if (!snap.exists()) {
-                    await setDoc(docRef, {
-                        active: false,
-                        slots: [null, null, null, null],
-                        hostId: state.userId,
-                        currentPlayer: 0,
-                        lastDice: 0,
-                        log: "Lobby geöffnet."
-                    });
-                }
+                await firebase.auth().signInAnonymously();
+                userId = firebase.auth().currentUser.uid;
 
-                // Join Slot
-                await runTransaction(db, async (tx) => {
-                    const d = await tx.get(docRef);
-                    const slots = d.data().slots;
-                    const idx = slots.findIndex(s => s === null);
+                // Slot suchen & beitreten
+                await db.runTransaction(async (transaction) => {
+                    const snap = await transaction.get(docRef);
+                    let data = snap.exists ? snap.data() : { 
+                        active: false, slots: [null,null,null,null], 
+                        hostId: userId, currentPlayer: 0, lastDice: 0, log: "Lobby" 
+                    };
+                    
+                    const idx = data.slots.findIndex(s => s === null);
                     if (idx === -1) throw "Voll";
-                    slots[idx] = { uid: state.userId, name: state.myName };
-                    tx.update(docRef, { slots });
+                    
+                    data.slots[idx] = { uid: userId, name: myName };
+                    transaction.set(docRef, data);
                 });
 
-                showScreen('screen-lobby');
-                onSnapshot(docRef, (s) => {
-                    state.game = s.data();
-                    if (state.game.active) {
-                        document.getElementById('screen-lobby').classList.add('hidden');
-                        document.getElementById('ui-game').classList.remove('hidden');
-                        refreshGameUI();
-                    } else {
-                        refreshLobbyUI();
+                show('scr-lobby');
+                docRef.onSnapshot(snap => {
+                    if (snap.exists) {
+                        gameState = snap.data();
+                        if (gameState.active) {
+                            renderGame();
+                            show('scr-game');
+                        } else {
+                            renderLobby();
+                        }
                     }
                 });
-
             } catch (e) {
-                log("Fehler: " + e);
-                alert("Multiplayer fehlgeschlagen: " + e);
+                alert("Fehler: " + e);
             }
         }
 
-        function refreshLobbyUI() {
-            const list = document.getElementById('lobby-list');
-            list.innerHTML = '';
+        function renderLobby() {
+            const container = document.getElementById('lobby-slots');
+            container.innerHTML = '';
             let count = 0;
-            state.game.slots.forEach((s, i) => {
+            gameState.slots.forEach((s, i) => {
                 if (s) {
                     count++;
-                    if (s.uid === state.userId) state.mySlot = i;
+                    if (s.uid === userId) mySlot = i;
                 }
                 const d = document.createElement('div');
-                d.className = "w-20 h-20 border-2 border-zinc-800 flex items-center justify-center text-[8px] nosifer text-center p-1";
+                d.className = "w-20 h-20 border-2 border-red-900 flex items-center justify-center text-[8px] nosifer text-center p-1";
                 d.style.color = PLAYERS[i].color;
                 d.innerText = s ? s.name : "OFFEN";
-                list.appendChild(d);
+                container.appendChild(d);
             });
 
-            const btn = document.getElementById('lobby-start');
-            if (state.game.hostId === state.userId && count >= 2) {
+            const btn = document.getElementById('btn-start');
+            if (gameState.hostId === userId && count >= 2) {
                 btn.classList.remove('hidden');
+                btn.onclick = () => docRef.update({ active: true, log: "Das Grauen beginnt!" });
             }
         }
 
-        document.getElementById('lobby-start').addEventListener('click', async () => {
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'globalState');
-            await updateDoc(docRef, { active: true, log: "Das Spiel beginnt!" });
-        });
-
-        // --- GAME UI ---
-        function refreshGameUI() {
-            const uiList = document.getElementById('player-list-ui');
-            uiList.innerHTML = '';
-            state.game.slots.forEach((s, i) => {
-                const active = state.game.currentPlayer === i;
+        function renderGame() {
+            const stats = document.getElementById('player-stats');
+            stats.innerHTML = '';
+            gameState.slots.forEach((s, i) => {
+                const active = gameState.currentPlayer === i;
                 const d = document.createElement('div');
-                d.className = `text-[10px] nosifer ${active ? 'text-red-600 animate-pulse' : 'text-zinc-600'}`;
+                d.className = `text-[10px] nosifer mb-1 ${active ? 'text-red-500 scale-110' : 'text-zinc-700'}`;
                 d.innerHTML = `<span style="color:${PLAYERS[i].color}">●</span> ${s ? s.name : 'BOT'}`;
-                uiList.appendChild(d);
+                stats.appendChild(d);
             });
 
-            document.getElementById('game-log').innerText = state.game.log;
-            document.getElementById('dice-box').innerText = state.game.lastDice || "?";
+            document.getElementById('log').innerText = gameState.log;
+            const dice = document.getElementById('dice');
+            dice.innerText = gameState.lastDice || "?";
             
-            const isMyTurn = state.game.currentPlayer === state.mySlot;
-            document.getElementById('dice-hint').style.display = isMyTurn ? 'block' : 'none';
+            const isMyTurn = gameState.currentPlayer === mySlot;
+            document.getElementById('turn-hint').style.visibility = isMyTurn ? 'visible' : 'hidden';
             
             if (isMyTurn) {
-                document.getElementById('dice-box').onclick = roll;
-                document.getElementById('dice-box').style.borderColor = "#f00";
+                dice.classList.add('can-roll');
+                dice.onclick = roll;
             } else {
-                document.getElementById('dice-box').onclick = null;
-                document.getElementById('dice-box').style.borderColor = "#222";
-                
-                // Bot Turn
-                if ((state.mode === 'solo' || state.game.hostId === state.userId) && !state.game.slots[state.game.currentPlayer]) {
+                dice.classList.remove('can-roll');
+                dice.onclick = null;
+                // Bot Logik
+                if ((gameMode === 'solo' || gameState.hostId === userId) && !gameState.slots[gameState.currentPlayer]) {
                     setTimeout(roll, 1500);
                 }
             }
@@ -277,35 +242,29 @@
 
         async function roll() {
             const v = Math.floor(Math.random() * 6) + 1;
-            const next = (state.game.currentPlayer + 1) % 4;
-            const pName = state.game.slots[state.game.currentPlayer]?.name || "Bot";
-            const newLog = `${pName} würfelt ${v}.`;
+            const next = (gameState.currentPlayer + 1) % 4;
+            const name = gameState.slots[gameState.currentPlayer]?.name || "Bot";
+            const newLog = `${name} würfelt eine ${v}.`;
 
-            if (state.mode === 'solo') {
-                state.game.lastDice = v;
-                state.game.currentPlayer = next;
-                state.game.log = newLog;
-                refreshGameUI();
+            if (gameMode === 'solo') {
+                gameState.lastDice = v;
+                gameState.currentPlayer = next;
+                gameState.log = newLog;
+                renderGame();
             } else {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'globalState');
-                await updateDoc(docRef, {
-                    lastDice: v,
-                    currentPlayer: next,
-                    log: newLog
-                });
+                await docRef.update({ lastDice: v, currentPlayer: next, log: newLog });
             }
         }
 
-        // 3D Background
+        // --- 3D DEKO ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
         camera.position.z = 5;
-        function anim() { requestAnimationFrame(anim); renderer.render(scene, camera); }
-        anim();
-        log("System bereit.");
+        function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
+        animate();
     </script>
 </body>
 </html>
