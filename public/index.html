@@ -22,10 +22,10 @@
             background: #300; border: 2px solid #600; padding: 15px 30px;
             width: 100%; max-width: 280px; cursor: pointer; transition: 0.3s;
             margin: 10px; font-family: 'Nosifer'; font-size: 0.8rem; color: #f00;
+            pointer-events: auto;
         }
-        .btn-horror:hover:not(:disabled) { background: #600; border-color: #f00; box-shadow: 0 0 15px #f00; }
-        .btn-horror:disabled { opacity: 0.3; cursor: not-allowed; }
-
+        .btn-horror:hover { background: #600; border-color: #f00; box-shadow: 0 0 15px #f00; }
+        
         #dice-view {
             width: 80px; height: 80px; background: #111; border: 3px solid #444;
             display: flex; align-items: center; justify-content: center;
@@ -37,9 +37,12 @@
         #game-canvas { position: fixed; inset: 0; z-index: 10; }
         .overlay-ui { position: fixed; inset: 0; z-index: 100; pointer-events: none; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; }
         .pointer-auto { pointer-events: auto; }
+        #debug-log { position: fixed; bottom: 5px; left: 5px; font-size: 8px; color: #444; z-index: 2000; }
     </style>
 </head>
 <body>
+
+    <div id="debug-log">Initialisiere Kernsysteme...</div>
 
     <!-- 1. MODUS WAHL -->
     <div id="scr-mode" class="screen">
@@ -51,9 +54,9 @@
     <!-- 2. LOGIN / NAME -->
     <div id="scr-auth" class="screen hidden">
         <h2 class="nosifer text-xl mb-6">WIE LAUTET DEIN NAME?</h2>
-        <input type="text" id="inp-username" class="bg-zinc-900 border-2 border-zinc-700 p-4 text-white text-center text-xl mb-6 outline-none w-full max-w-xs focus:border-red-600" maxlength="12">
+        <input type="text" id="inp-username" class="bg-zinc-900 border-2 border-zinc-700 p-4 text-white text-center text-xl mb-6 outline-none w-full max-w-xs focus:border-red-600" placeholder="DEIN NAME..." maxlength="12">
         <button id="btn-join-ritual" class="btn-horror">DEM PAKT BEITRETEN</button>
-        <p id="auth-status" class="text-[10px] mt-4 text-zinc-600 uppercase"></p>
+        <p id="auth-status" class="horror text-sm mt-4 text-red-800"></p>
     </div>
 
     <!-- 3. LOBBY -->
@@ -83,14 +86,15 @@
         import { getFirestore, doc, onSnapshot, setDoc, updateDoc, getDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // Firebase Initialisierung
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'horror-maedn-v9';
+        const debug = (msg) => { document.getElementById('debug-log').innerText = msg; console.log(msg); };
 
-        let userId, myName, mySlot = -1, isSolo = false, gameState = null;
+        let db, auth, appId, docRef;
+        let userId = 'user_' + Math.random().toString(36).substr(2, 9);
+        let myName = "Seele";
+        let mySlot = -1;
+        let isSolo = false;
+        let gameState = null;
+
         const PLAYERS = [
             { name: "Geister", color: "#ffffff" },
             { name: "Bibeln", color: "#00f0ff" },
@@ -98,35 +102,69 @@
             { name: "Kreuze", color: "#ff0033" }
         ];
 
-        // --- NAVIGATION ---
-        document.getElementById('btn-select-solo').onclick = () => { isSolo = true; showScreen('scr-auth'); };
-        document.getElementById('btn-select-multi').onclick = () => { isSolo = false; showScreen('scr-auth'); };
-
-        document.getElementById('btn-join-ritual').onclick = async () => {
-            const input = document.getElementById('inp-username');
-            if (!input.value.trim()) return;
-            myName = input.value.trim();
-            
-            if (isSolo) {
-                startSolo();
-            } else {
-                startMulti();
+        // --- FIREBASE INITIALISIERUNG ---
+        function initFirebase() {
+            try {
+                if (typeof __firebase_config === 'undefined' || !__firebase_config) {
+                    throw "Konfiguration fehlt";
+                }
+                const config = JSON.parse(__firebase_config);
+                const app = initializeApp(config);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'horror-maedn-v10';
+                docRef = doc(db, 'artifacts', appId, 'public', 'data', 'globalState');
+                debug("Firebase bereit.");
+            } catch (e) {
+                debug("Firebase-Fehler: " + e + " - Nur Solo verfügbar.");
+                db = null;
             }
-        };
+        }
 
+        // --- NAVIGATION ---
         function showScreen(id) {
             document.querySelectorAll('.screen, .overlay-ui').forEach(s => s.classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
         }
 
-        // --- SOLO LOGIC ---
+        window.onload = () => {
+            initFirebase();
+            
+            document.getElementById('btn-select-solo').addEventListener('click', () => {
+                isSolo = true;
+                showScreen('scr-auth');
+                debug("Solo gewählt");
+            });
+
+            document.getElementById('btn-select-multi').addEventListener('click', () => {
+                if (!db) {
+                    alert("Online-Modus konnte nicht geladen werden. Prüfe die Firebase-Verbindung.");
+                    return;
+                }
+                isSolo = false;
+                showScreen('scr-auth');
+                debug("Multiplayer gewählt");
+            });
+
+            document.getElementById('btn-join-ritual').addEventListener('click', () => {
+                const input = document.getElementById('inp-username');
+                if (!input.value.trim()) {
+                    alert("Gib einen Namen ein!");
+                    return;
+                }
+                myName = input.value.trim();
+                if (isSolo) startSolo(); else startMulti();
+            });
+        };
+
+        // --- GAMEPLAY ---
         function startSolo() {
             gameState = {
                 active: true,
-                slots: [{ uid: 'solo-me', name: myName }, null, null, null],
+                slots: [{ uid: userId, name: myName }, null, null, null],
                 currentPlayer: 0,
                 lastDice: 0,
-                log: "Solo-Ritual begonnen."
+                log: "Solo-Herausforderung gestartet."
             };
             mySlot = 0;
             showScreen('scr-game');
@@ -134,79 +172,64 @@
             updateGameUI();
         }
 
-        // --- MULTIPLAYER LOGIC ---
         async function startMulti() {
-            document.getElementById('auth-status').innerText = "Verbindung zum Pakt...";
+            document.getElementById('auth-status').innerText = "Verschwöre mit Server...";
             try {
                 const cred = await signInAnonymously(auth);
                 userId = cred.user.uid;
                 
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'globalState');
-                
-                // Transaktion für den Beitritt
-                await runTransaction(db, async (transaction) => {
-                    const snap = await transaction.get(docRef);
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(docRef);
                     let data = snap.exists() ? snap.data() : {
                         active: false,
                         slots: [null, null, null, null],
                         hostId: userId,
                         currentPlayer: 0,
                         lastDice: 0,
-                        log: "Lobby geöffnet."
+                        log: "Das Ritual wird vorbereitet..."
                     };
-
                     const idx = data.slots.findIndex(s => s === null);
-                    if (idx === -1) throw "Lobby ist voll!";
-                    
+                    if (idx === -1) throw "Die Hölle ist voll!";
                     data.slots[idx] = { uid: userId, name: myName };
-                    transaction.set(docRef, data);
+                    tx.set(docRef, data);
                 });
 
                 showScreen('scr-lobby');
-                init3D();
-
                 onSnapshot(docRef, (snap) => {
                     if (snap.exists()) {
                         gameState = snap.data();
                         if (gameState.active) {
                             showScreen('scr-game');
+                            init3D();
                             updateGameUI();
                         } else {
                             updateLobbyUI();
                         }
                     }
                 });
-
             } catch (e) {
-                document.getElementById('auth-status').innerText = "FEHLER: " + e;
+                document.getElementById('auth-status').innerText = "Fehler: " + e;
             }
         }
 
         function updateLobbyUI() {
             const list = document.getElementById('lobby-list');
             list.innerHTML = '';
-            let readyCount = 0;
+            let count = 0;
             gameState.slots.forEach((s, i) => {
-                if (s) readyCount++;
+                if (s) count++;
                 if (s?.uid === userId) mySlot = i;
                 const d = document.createElement('div');
-                d.className = "w-24 h-24 border-2 border-zinc-800 flex flex-col items-center justify-center p-2 bg-black/50";
+                d.className = "w-24 h-24 border-2 flex flex-col items-center justify-center p-2 bg-black/50";
                 d.style.borderColor = s ? PLAYERS[i].color : '#222';
                 d.innerHTML = `<span class="nosifer text-[8px] truncate w-full text-center" style="color:${PLAYERS[i].color}">${s ? s.name : 'OFFEN'}</span>`;
                 list.appendChild(d);
             });
 
-            const startBtn = document.getElementById('btn-start-now');
-            if (gameState.hostId === userId) {
-                if (readyCount >= 2) {
-                    startBtn.classList.remove('hidden');
-                    startBtn.onclick = async () => {
-                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'globalState');
-                        await updateDoc(docRef, { active: true, log: "Das Spiel hat begonnen!" });
-                    };
-                } else {
-                    startBtn.classList.add('hidden');
-                }
+            const btn = document.getElementById('btn-start-now');
+            if (gameState.hostId === userId && count >= 2) {
+                btn.classList.remove('hidden');
+                btn.onclick = async () => await updateDoc(docRef, { active: true, log: "Das Spiel beginnt!" });
             }
         }
 
@@ -215,27 +238,23 @@
             status.innerHTML = '';
             gameState.slots.forEach((s, i) => {
                 const active = gameState.currentPlayer === i;
-                const div = document.createElement('div');
-                div.className = `nosifer text-[9px] mb-2 ${active ? 'text-red-500' : 'text-zinc-600'}`;
-                div.innerHTML = `<span style="color:${PLAYERS[i].color}">●</span> ${s ? s.name : 'BOT'}`;
-                status.appendChild(div);
+                const d = document.createElement('div');
+                d.className = `nosifer text-[9px] mb-2 ${active ? 'text-red-500' : 'text-zinc-600'}`;
+                d.innerHTML = `<span style="color:${PLAYERS[i].color}">●</span> ${s ? s.name : 'BOT'}`;
+                status.appendChild(d);
             });
-
             document.getElementById('game-log').innerText = gameState.log;
             const dice = document.getElementById('dice-view');
             dice.innerText = gameState.lastDice || "?";
-            
             const isMyTurn = gameState.currentPlayer === mySlot;
             document.getElementById('turn-hint').innerText = isMyTurn ? "DEIN ZUG" : "";
-            
             if (isMyTurn) {
                 dice.classList.add('active-dice');
                 dice.onclick = roll;
             } else {
                 dice.classList.remove('active-dice');
                 dice.onclick = null;
-                // Bot Logic (Host or Solo handles it)
-                if ((isSolo || gameState.hostId === userId) && !gameState.slots[gameState.currentPlayer]) {
+                if ((isSolo || (gameState && gameState.hostId === userId)) && !gameState.slots[gameState.currentPlayer]) {
                     setTimeout(roll, 2000);
                 }
             }
@@ -244,21 +263,16 @@
         async function roll() {
             const v = Math.floor(Math.random() * 6) + 1;
             const next = (gameState.currentPlayer + 1) % 4;
-            const pName = gameState.slots[gameState.currentPlayer]?.name || "Bot";
-            const newLog = `${pName} würfelt ${v}.`;
-
+            const n = gameState.slots[gameState.currentPlayer]?.name || "Bot";
+            const newLog = `${n} würfelt eine ${v}.`;
             if (isSolo) {
-                gameState.lastDice = v;
-                gameState.currentPlayer = next;
-                gameState.log = newLog;
+                gameState.lastDice = v; gameState.currentPlayer = next; gameState.log = newLog;
                 updateGameUI();
             } else {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'globalState');
                 await updateDoc(docRef, { lastDice: v, currentPlayer: next, log: newLog });
             }
         }
 
-        // --- 3D SCENE ---
         let scene, camera, renderer;
         function init3D() {
             if (scene) return;
@@ -267,12 +281,8 @@
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.getElementById('game-canvas').appendChild(renderer.domElement);
-            
-            const grid = new THREE.GridHelper(20, 20, 0x440000, 0x110000);
-            scene.add(grid);
-            camera.position.set(0, 10, 10);
-            camera.lookAt(0, 0, 0);
-            
+            scene.add(new THREE.GridHelper(20, 20, 0x440000, 0x110000));
+            camera.position.set(0, 10, 10); camera.lookAt(0, 0, 0);
             function anim() { requestAnimationFrame(anim); renderer.render(scene, camera); }
             anim();
         }
