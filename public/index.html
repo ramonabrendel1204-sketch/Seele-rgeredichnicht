@@ -8,52 +8,62 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Creepster&family=Nosifer&display=swap');
-        body { margin: 0; overflow: hidden; background: #000; color: #eee; font-family: sans-serif; touch-action: none; }
+        body { margin: 0; overflow: hidden; background: #000; color: #eee; font-family: 'Segoe UI', sans-serif; touch-action: none; }
         .nosifer { font-family: 'Nosifer', cursive; }
         .horror-font { font-family: 'Creepster', cursive; }
+        
         #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
         .pointer-auto { pointer-events: auto; }
-        .btn-horror { background: #111; border: 1px solid #444; padding: 10px 20px; cursor: pointer; transition: 0.3s; }
-        .btn-horror:hover { border-color: #ff0000; box-shadow: 0 0 15px #ff0000; }
-        #dice-btn { width: 80px; height: 80px; background: #111; border: 2px solid #444; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; cursor: pointer; pointer-events: auto; }
-        #dice-btn.active { border-color: #fff; box-shadow: 0 0 20px #fff; animation: pulse 1s infinite; }
+        
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
+        
+        .input-horror { background: #111; border: 1px solid #444; color: white; padding: 12px; border-radius: 4px; outline: none; width: 100%; max-width: 300px; margin-bottom: 20px; }
+        .input-horror:focus { border-color: #ff0000; box-shadow: 0 0 10px #ff0000; }
+        
+        .btn-horror { background: #111; border: 1px solid #444; padding: 12px 24px; cursor: pointer; transition: 0.3s; color: white; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 2px; }
+        .btn-horror:hover:not(:disabled) { border-color: #ff0000; box-shadow: 0 0 15px #ff0000; background: #200; }
+        .btn-horror:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        #dice-btn { width: 80px; height: 80px; background: #111; border: 2px solid #444; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; cursor: pointer; pointer-events: auto; color: white; }
+        #dice-btn.active { border-color: #ff0000; box-shadow: 0 0 20px #ff0000; animation: pulse 1s infinite; }
         @keyframes pulse { 50% { transform: scale(1.1); } }
-        #quiz-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: none; align-items: center; justify-content: center; pointer-events: auto; }
-        .status-box { background: rgba(0,0,0,0.8); border: 1px solid #333; padding: 15px; border-radius: 8px; backdrop-filter: blur(10px); width: 250px; }
+
+        .player-slot { background: #0a0a0a; border: 1px solid #333; padding: 10px; border-radius: 8px; width: 140px; }
+        .player-slot.active { border-color: #00ff00; background: #051a05; }
     </style>
 </head>
 <body>
 
-    <div id="lobby" class="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-6 text-center">
-        <h1 class="nosifer text-red-600 text-4xl mb-8">HORROR MÄDN</h1>
-        <p class="horror-font text-xl mb-12 text-zinc-400">MULTIPLAYER ONLINE</p>
+    <!-- Start/Lobby Screen -->
+    <div id="lobby" class="overlay">
+        <h1 class="nosifer text-red-600 text-4xl mb-2">HORROR MÄDN</h1>
+        <p class="horror-font text-zinc-500 text-xl mb-12 tracking-widest">MULTIVERSE EDITION</p>
         
-        <div id="lobby-status" class="mb-8 space-y-2">
-            <p>Warten auf Spieler...</p>
-            <div id="player-list" class="flex gap-4 justify-center">
-                <!-- Spieler-Slots werden hier geladen -->
+        <div id="setup-step">
+            <input type="text" id="player-name" class="input-horror text-center" placeholder="DEIN NAME..." maxlength="12">
+            <button id="join-btn" class="btn-horror nosifer">Beitreten</button>
+        </div>
+
+        <div id="wait-step" class="hidden w-full max-w-2xl">
+            <p class="mb-6 text-zinc-400">Warten auf weitere Opfer...</p>
+            <div id="player-grid" class="flex flex-wrap gap-4 justify-center mb-10">
+                <!-- Slots -->
+            </div>
+            <button id="start-game-btn" class="btn-horror nosifer hidden">Spiel Starten</button>
+            <p id="host-msg" class="text-xs text-zinc-600 italic">Nur der Host kann das Spiel starten.</p>
+        </div>
+    </div>
+
+    <!-- UI Layer -->
+    <div id="ui-layer" style="display:none">
+        <div class="flex justify-between items-start pointer-auto">
+            <div class="bg-black/80 border border-zinc-800 p-4 rounded-lg backdrop-blur-md">
+                <h2 id="turn-display" class="nosifer text-red-600 text-sm mb-1">...</h2>
+                <p id="game-log" class="text-[10px] text-zinc-500 italic">Verbunden.</p>
             </div>
         </div>
-
-        <button id="join-btn" class="btn-horror nosifer text-sm text-white">SITZUNG BEITRETEN</button>
-        <p class="text-[10px] text-zinc-600 mt-10">ID: <span id="user-id-display">...</span></p>
-    </div>
-
-    <div id="quiz-modal">
-        <div class="bg-zinc-900 border-2 border-purple-600 p-8 rounded-xl max-w-md w-full text-center">
-            <h2 id="quiz-cat" class="nosifer text-purple-500 text-xs mb-4">WISSENSPRÜFUNG</h2>
-            <p id="quiz-q" class="text-2xl horror-font mb-6">Frage?</p>
-            <div id="quiz-opts" class="space-y-3"></div>
-        </div>
-    </div>
-
-    <div id="ui-layer" style="display:none">
-        <div class="status-box pointer-auto">
-            <h2 class="nosifer text-red-600 text-sm mb-2">SPIELSTATUS</h2>
-            <div id="turn-info" class="text-xs uppercase font-bold tracking-widest mb-2">Warten...</div>
-            <div id="game-log" class="text-[10px] italic text-zinc-500">Spiel gestartet.</div>
-        </div>
-        <div class="flex justify-center mb-10">
+        
+        <div class="flex justify-center mb-12">
             <div id="dice-btn" class="horror-font">?</div>
         </div>
     </div>
@@ -63,127 +73,191 @@
         import { getFirestore, doc, setDoc, onSnapshot, updateDoc, collection, query, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // Firebase Initialisierung
+        // Global State & Firebase Init
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'horror-maedn-v1';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'horror-maedn-v2';
 
         let userId = null;
+        let myName = "";
         let gameState = null;
-        let mySlot = -1;
+        let mySlotIndex = -1;
 
-        // Spiel-Konstanten
         const PLAYERS = [
-            { id: 0, name: "Geister", color: 0xffffff, startIdx: 0 },
-            { id: 1, name: "Bibeln", color: 0x00f0ff, startIdx: 10 },
-            { id: 2, name: "Schädel", color: 0xbc13fe, startIdx: 20 },
-            { id: 3, name: "Kreuze", color: 0xff0033, startIdx: 30 }
+            { id: 0, name: "Geister", color: "#ffffff" },
+            { id: 1, name: "Bibeln", color: "#00f0ff" },
+            { id: 2, name: "Schädel", color: "#bc13fe" },
+            { id: 3, name: "Kreuze", color: "#ff0033" }
         ];
 
-        // UI Refs
-        const lobby = document.getElementById('lobby');
-        const playerList = document.getElementById('player-list');
-        const joinBtn = document.getElementById('join-btn');
-        const diceBtn = document.getElementById('dice-btn');
-
-        // Initialisierung
+        // --- AUTH & LOGIN ---
         const init = async () => {
-            const userCredential = await signInAnonymously(auth);
-            userId = userCredential.user.uid;
-            document.getElementById('user-id-display').innerText = userId;
-            
-            listenToGameState();
+            const userCred = await signInAnonymously(auth);
+            userId = userCred.user.uid;
+            syncGameState();
         };
 
-        const listenToGameState = () => {
+        const syncGameState = () => {
             const gameDoc = doc(db, 'artifacts', appId, 'public', 'data', 'globalState');
-            
-            onSnapshot(gameDoc, async (snapshot) => {
+            onSnapshot(gameDoc, (snapshot) => {
                 if (!snapshot.exists()) {
-                    // Initialen State erstellen wenn keiner da ist
-                    await createInitialState();
+                    resetServerState();
                     return;
                 }
                 gameState = snapshot.data();
-                updateLobbyUI();
-                if (gameState.active) {
-                    lobby.style.display = 'none';
-                    document.getElementById('ui-layer').style.display = 'flex';
-                    // Hier würde die 3D Sync Logik sitzen
-                    renderGameStatus();
-                }
-            }, (err) => console.error("Firestore Error:", err));
+                processStateUpdate();
+            }, (err) => console.error("Sync Error:", err));
         };
 
-        const createInitialState = async () => {
-            const initialState = {
+        const resetServerState = async () => {
+            const emptyState = {
                 active: false,
                 currentPlayer: 0,
-                slots: [null, null, null, null], // UserIDs oder null (Bot)
+                slots: [null, null, null, null], // Enthält {uid, name} oder null
                 pieces: [[-1,-1,-1,-1], [-1,-1,-1,-1], [-1,-1,-1,-1], [-1,-1,-1,-1]],
-                diceValue: 0,
-                lastUpdate: Date.now()
+                lastDice: 0,
+                hostId: null,
+                log: "Lobby erstellt."
             };
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), initialState);
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), emptyState);
         };
 
-        const updateLobbyUI = () => {
-            playerList.innerHTML = '';
-            gameState.slots.forEach((slot, i) => {
-                const div = document.createElement('div');
-                div.className = `w-12 h-12 rounded-full border-2 flex items-center justify-center text-[10px] ${slot ? 'border-green-500 bg-green-900/20' : 'border-zinc-800 bg-zinc-900'}`;
-                div.innerText = slot ? (slot === userId ? 'ICH' : 'P'+(i+1)) : 'BOT';
-                playerList.appendChild(div);
-                if (slot === userId) mySlot = i;
+        // --- LOBBY LOGIC ---
+        document.getElementById('join-btn').onclick = async () => {
+            const nameInput = document.getElementById('player-name').value.trim();
+            if (!nameInput) return;
+            myName = nameInput;
+
+            const emptyIndex = gameState.slots.findIndex(s => s === null);
+            if (emptyIndex === -1) {
+                alert("Spiel ist voll!");
+                return;
+            }
+
+            const newSlots = [...gameState.slots];
+            newSlots[emptyIndex] = { uid: userId, name: myName };
+            
+            const updates = { slots: newSlots };
+            if (!gameState.hostId) updates.hostId = userId;
+
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), updates);
+            
+            document.getElementById('setup-step').classList.add('hidden');
+            document.getElementById('wait-step').classList.remove('hidden');
+        };
+
+        document.getElementById('start-game-btn').onclick = async () => {
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), {
+                active: true,
+                log: "Das Spiel hat begonnen!"
             });
         };
 
-        const renderGameStatus = () => {
-            const info = document.getElementById('turn-info');
-            const isMyTurn = gameState.currentPlayer === mySlot;
-            const activeName = PLAYERS[gameState.currentPlayer].name;
+        const processStateUpdate = () => {
+            // Lobby Update
+            const grid = document.getElementById('player-grid');
+            grid.innerHTML = '';
             
-            info.innerText = isMyTurn ? "DEIN ZUG" : `${activeName} ist dran`;
-            info.style.color = `#${PLAYERS[gameState.currentPlayer].color.toString(16)}`;
+            gameState.slots.forEach((slot, i) => {
+                const div = document.createElement('div');
+                div.className = `player-slot ${slot?.uid === userId ? 'active' : ''}`;
+                div.innerHTML = `
+                    <p class="text-[10px] text-zinc-500">Slot ${i+1}</p>
+                    <p class="font-bold truncate" style="color:${PLAYERS[i].color}">${slot ? slot.name : 'OFFEN'}</p>
+                `;
+                grid.appendChild(div);
+                if (slot?.uid === userId) mySlotIndex = i;
+            });
+
+            // Host Controls
+            if (gameState.hostId === userId && !gameState.active) {
+                document.getElementById('start-game-btn').classList.remove('hidden');
+                document.getElementById('host-msg').innerText = "Du bist der Host.";
+            }
+
+            // Spielstart
+            if (gameState.active) {
+                document.getElementById('lobby').style.display = 'none';
+                document.getElementById('ui-layer').style.display = 'flex';
+                updateInGameUI();
+            }
+        };
+
+        // --- IN-GAME LOGIC ---
+        const updateInGameUI = () => {
+            const isMyTurn = gameState.currentPlayer === mySlotIndex;
+            const turnDisplay = document.getElementById('turn-display');
+            const currentPlayerName = gameState.slots[gameState.currentPlayer]?.name || `Bot (${PLAYERS[gameState.currentPlayer].name})`;
             
+            turnDisplay.innerText = isMyTurn ? "DU BIST DRAN" : `${currentPlayerName.toUpperCase()} IST DRAN`;
+            turnDisplay.style.color = PLAYERS[gameState.currentPlayer].color;
+            document.getElementById('game-log').innerText = gameState.log;
+
+            const dice = document.getElementById('dice-btn');
             if (isMyTurn) {
-                diceBtn.classList.add('active');
+                dice.classList.add('active');
+                dice.onclick = rollDice;
             } else {
-                diceBtn.classList.remove('active');
-                // Bot Logik Check: Falls Slot null ist und ich der erste echte Spieler bin, steuere ich den Bot
-                checkBotLogic();
+                dice.classList.remove('active');
+                dice.onclick = null;
+                dice.innerText = gameState.lastDice || "?";
+                
+                // Bot Trigger (Nur Host berechnet Bots)
+                if (gameState.hostId === userId && gameState.slots[gameState.currentPlayer] === null) {
+                    setTimeout(handleBotTurn, 2000);
+                }
             }
         };
 
-        joinBtn.onclick = async () => {
-            if (!gameState) return;
-            const emptySlot = gameState.slots.indexOf(null);
-            if (emptySlot !== -1) {
-                const newSlots = [...gameState.slots];
-                newSlots[emptySlot] = userId;
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), {
-                    slots: newSlots,
-                    active: true // Spiel startet beim ersten Beitritt (Bots füllen auf)
-                });
-            }
+        const rollDice = async () => {
+            const val = Math.floor(Math.random() * 6) + 1;
+            document.getElementById('dice-btn').innerText = val;
+            
+            // Hier würde normalerweise die Zug-Validierung folgen.
+            // Zur Vereinfachung für diesen Prototyp: Nur der Würfelwurf wird gesynct.
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), {
+                lastDice: val,
+                currentPlayer: (gameState.currentPlayer + 1) % 4,
+                log: `${myName} hat eine ${val} gewürfelt.`
+            });
         };
 
-        const checkBotLogic = () => {
-            // Nur der "Host" (erster Spieler in Slots) berechnet Bot-Züge
-            const hostId = gameState.slots.find(s => s !== null);
-            if (hostId === userId && gameState.slots[gameState.currentPlayer] === null) {
-                console.log("Steuere Bot für Slot", gameState.currentPlayer);
-                // Hier würde die automatisierte Würfel-Logik des Bots getriggert werden
-            }
+        const handleBotTurn = async () => {
+            if (gameState.slots[gameState.currentPlayer] !== null) return;
+            const val = Math.floor(Math.random() * 6) + 1;
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), {
+                lastDice: val,
+                currentPlayer: (gameState.currentPlayer + 1) % 4,
+                log: `Bot ${PLAYERS[gameState.currentPlayer].name} würfelt eine ${val}.`
+            });
         };
-
-        // 3D Visualisierung (Platzhalter für die Integration des bestehenden Codes)
-        // ... Hier folgt die Three.js Logik aus der vorherigen Version, 
-        // ... wobei die Positionen aus gameState.pieces gelesen werden.
 
         init();
+
+        // 3D Engine Setup (Grundgerüst)
+        let scene, camera, renderer;
+        const init3D = () => {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+            camera.position.z = 15;
+            
+            const light = new THREE.PointLight(0xffffff, 1, 100);
+            light.position.set(10, 10, 10);
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0x404040));
+            
+            animate();
+        };
+        const animate = () => {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        };
+        init3D();
     </script>
 </body>
 </html>
