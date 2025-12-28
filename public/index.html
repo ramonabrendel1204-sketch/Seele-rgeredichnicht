@@ -12,84 +12,96 @@
         .nosifer { font-family: 'Nosifer', cursive; }
         .horror-font { font-family: 'Creepster', cursive; }
         
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        .btn-horror { background: #1a0000; border: 2px solid #660000; padding: 15px 30px; cursor: pointer; transition: 0.3s; color: #ff0000; font-family: 'Nosifer'; font-size: 0.8rem; pointer-events: auto; position: relative; z-index: 200; }
-        .btn-horror:hover:not(:disabled) { background: #440000; border-color: #ff0000; box-shadow: 0 0 20px #ff0000; }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; pointer-events: auto; }
+        
+        .btn-horror { 
+            background: #200; border: 2px solid #800; padding: 15px 40px; cursor: pointer; 
+            transition: 0.2s; color: #f00; font-family: 'Nosifer'; font-size: 0.9rem; 
+            pointer-events: auto; position: relative;
+        }
+        .btn-horror:hover:not(:disabled) { background: #500; border-color: #f00; box-shadow: 0 0 25px #f00; }
         .btn-horror:active { transform: scale(0.95); }
-        .btn-horror:disabled { opacity: 0.3; cursor: not-allowed; }
+        .btn-horror:disabled { opacity: 0.3; cursor: wait; }
         
-        .input-horror { background: #0a0a0a; border: 1px solid #444; color: white; padding: 15px; border-radius: 4px; width: 100%; max-width: 320px; text-align: center; margin-bottom: 20px; font-size: 1.2rem; pointer-events: auto; }
+        .input-horror { 
+            background: #111; border: 2px solid #444; color: #fff; padding: 15px; 
+            width: 100%; max-width: 320px; text-align: center; margin-bottom: 25px; 
+            font-size: 1.3rem; outline: none; pointer-events: auto;
+        }
+        .input-horror:focus { border-color: #f00; box-shadow: 0 0 10px #800; }
         
-        #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; padding: 25px; }
+        #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 100; display: flex; flex-direction: column; justify-content: space-between; padding: 25px; }
         .pointer-auto { pointer-events: auto; }
         
-        .player-card { background: #050505; border: 1px solid #222; padding: 15px; border-radius: 10px; width: 160px; transition: 0.5s; }
-        .player-card.is-me { border-color: #00ff00; }
+        .slot-card { background: #0a0a0a; border: 2px solid #222; padding: 20px; border-radius: 12px; width: 180px; text-align: center; }
+        .slot-card.is-me { border-color: #0f0; box-shadow: 0 0 15px rgba(0,255,0,0.2); }
 
         #dice-btn { 
-            width: 90px; height: 90px; background: #111; border: 3px solid #444; border-radius: 15px;
-            display: flex; align-items: center; justify-content: center; font-size: 3rem; 
-            cursor: pointer; pointer-events: auto; color: white; transition: 0.3s;
+            width: 100px; height: 100px; background: #111; border: 4px solid #444; border-radius: 20px;
+            display: flex; align-items: center; justify-content: center; font-size: 3.5rem; 
+            cursor: pointer; pointer-events: auto; color: #fff; transition: 0.3s;
         }
-        #dice-btn.can-roll { border-color: #ff0000; box-shadow: 0 0 25px #ff0000; animation: pulse 1s infinite; }
-        @keyframes pulse { 50% { transform: scale(1.05); } }
+        #dice-btn.can-roll { border-color: #f00; box-shadow: 0 0 30px #f00; animation: pulse 1s infinite; }
+        @keyframes pulse { 50% { transform: scale(1.1); } }
     </style>
 </head>
 <body>
 
-    <!-- LOBBY -->
-    <div id="lobby" class="overlay">
-        <h1 class="nosifer text-red-600 text-5xl mb-4 tracking-tighter">HORROR MÄDN</h1>
-        <p class="horror-font text-zinc-500 text-2xl mb-12 uppercase tracking-widest">Multiplayer</p>
+    <!-- LOBBY ÜBERLAGERUNG -->
+    <div id="lobby-overlay" class="overlay">
+        <h1 class="nosifer text-red-600 text-6xl mb-4 tracking-tighter">HORROR MÄDN</h1>
+        <p class="horror-font text-zinc-600 text-2xl mb-12 uppercase tracking-[0.3em]">Multiplayer</p>
 
-        <div id="login-form" class="w-full flex flex-col items-center">
-            <input type="text" id="username" class="input-horror" placeholder="Dein Name..." maxlength="12">
-            <button id="join-btn" class="btn-horror">Dem Pakt beitreten</button>
+        <!-- SCHRITT 1: NAME EINGEBEN -->
+        <div id="step-join" class="w-full flex flex-col items-center">
+            <input type="text" id="username" class="input-horror" placeholder="DEIN NAME..." maxlength="12">
+            <button id="btn-join-action" class="btn-horror">DEM PAKT BEITRETEN</button>
         </div>
 
-        <div id="waiting-room" class="hidden w-full flex flex-col items-center">
-            <div id="slots-container" class="flex flex-wrap gap-4 justify-center mb-10"></div>
-            <div id="host-controls" class="h-20 flex items-center justify-center">
-                <button id="start-btn" class="btn-horror hidden">Qualen beginnen</button>
+        <!-- SCHRITT 2: WARTEN -->
+        <div id="step-wait" class="hidden w-full flex flex-col items-center">
+            <div id="slots-display" class="flex flex-wrap gap-6 justify-center mb-12"></div>
+            <div id="host-zone" class="min-h-[80px]">
+                <button id="btn-start-action" class="btn-horror hidden">DIE QUALEN BEGINNEN</button>
             </div>
-            <p id="status-msg" class="text-zinc-600 italic mt-4">Warten auf Spieler...</p>
+            <p id="status-text" class="text-zinc-500 italic mt-6 horror-font text-xl">Suche andere Seelen...</p>
         </div>
     </div>
 
-    <!-- SPIEL UI -->
+    <!-- SPIEL OBERFLÄCHE -->
     <div id="ui-layer" class="hidden">
         <div class="flex justify-between items-start pointer-auto">
-            <div class="bg-black/90 border border-zinc-800 p-5 rounded-xl backdrop-blur-lg">
-                <h2 id="turn-display" class="nosifer text-red-700 text-lg mb-1">GEISTER DRAN</h2>
-                <div id="log" class="text-xs text-zinc-500 italic max-w-[200px]">Initialisiere...</div>
+            <div class="bg-black/95 border-2 border-zinc-800 p-6 rounded-2xl backdrop-blur-xl">
+                <h2 id="turn-display" class="nosifer text-red-600 text-xl mb-2">...</h2>
+                <div id="log-display" class="text-sm text-zinc-500 italic max-w-[220px]">Initialisiere Welt...</div>
             </div>
         </div>
 
-        <div class="flex justify-center mb-16">
+        <div class="flex justify-center mb-20">
             <div id="dice-btn" class="horror-font">?</div>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'horror-maedn-prod-1';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'horror-maedn-v4';
 
         let userId, myName, gameState, mySlot = -1;
-        const PLAYERS = [
+        const PLAYER_CONFIG = [
             { name: "Geister", color: "#ffffff" },
             { name: "Bibeln", color: "#00f0ff" },
             { name: "Schädel", color: "#bc13fe" },
             { name: "Kreuze", color: "#ff0033" }
         ];
 
-        async function init() {
+        async function bootstrap() {
             try {
                 const cred = await signInAnonymously(auth);
                 userId = cred.user.uid;
@@ -104,140 +116,152 @@
                         currentPlayer: 0,
                         lastDice: 0,
                         hostId: userId,
-                        log: "Lobby erstellt."
+                        log: "Die Gruft wurde geöffnet."
                     });
                 }
 
                 onSnapshot(docRef, (s) => {
                     if (s.exists()) {
                         gameState = s.data();
-                        renderLobby();
-                        if (gameState.active) startGameUI();
+                        refreshLobbyUI();
+                        if (gameState.active) showGameUI();
                     }
                 });
-            } catch (e) {
-                console.error("Init Error", e);
+            } catch (err) {
+                console.error("Fatal Error:", err);
             }
         }
 
-        function renderLobby() {
-            if (!gameState || gameState.active) return;
+        function refreshLobbyUI() {
+            if (gameState.active) return;
 
-            const container = document.getElementById('slots-container');
+            const container = document.getElementById('slots-display');
             container.innerHTML = '';
             
             gameState.slots.forEach((slot, i) => {
                 const div = document.createElement('div');
-                div.className = `player-card ${slot?.uid === userId ? 'is-me' : ''}`;
+                div.className = `slot-card ${slot?.uid === userId ? 'is-me' : ''}`;
                 div.innerHTML = `
-                    <p class="text-[9px] text-zinc-600 uppercase mb-1">Slot ${i+1}</p>
-                    <p class="nosifer text-xs" style="color:${PLAYERS[i].color}">${slot ? slot.name : 'BEREIT'}</p>
+                    <p class="text-[10px] text-zinc-600 uppercase mb-2">Slot ${i+1}</p>
+                    <p class="nosifer text-sm" style="color:${PLAYER_CONFIG[i].color}">${slot ? slot.name : 'BEREIT'}</p>
                 `;
                 container.appendChild(div);
                 if (slot?.uid === userId) mySlot = i;
             });
 
-            const startBtn = document.getElementById('start-btn');
+            const startBtn = document.getElementById('btn-start-action');
             if (gameState.hostId === userId) {
                 startBtn.classList.remove('hidden');
-                document.getElementById('status-msg').innerText = "Du bist der Host.";
+                document.getElementById('status-text').innerText = "Du bist der Host. Starte wenn alle bereit sind.";
             } else {
                 startBtn.classList.add('hidden');
-                document.getElementById('status-msg').innerText = "Warte auf Host...";
+                document.getElementById('status-text').innerText = "Warte auf den Host...";
             }
         }
 
-        function startGameUI() {
-            document.getElementById('lobby').classList.add('hidden');
+        function showGameUI() {
+            document.getElementById('lobby-overlay').classList.add('hidden');
             document.getElementById('ui-layer').classList.remove('hidden');
             
             const isMyTurn = gameState.currentPlayer === mySlot;
-            const display = document.getElementById('turn-display');
+            const turnText = document.getElementById('turn-display');
             const activePlayer = gameState.slots[gameState.currentPlayer];
-            const name = activePlayer ? activePlayer.name : `Bot ${PLAYERS[gameState.currentPlayer].name}`;
+            const name = activePlayer ? activePlayer.name : `Bot ${PLAYER_CONFIG[gameState.currentPlayer].name}`;
             
-            display.innerText = (isMyTurn ? "DU BIST DRAN" : name + " DRAN").toUpperCase();
-            display.style.color = PLAYERS[gameState.currentPlayer].color;
-            document.getElementById('log').innerText = gameState.log;
+            turnText.innerText = (isMyTurn ? "DEIN ZUG" : name + " IST DRAN").toUpperCase();
+            turnText.style.color = PLAYER_CONFIG[gameState.currentPlayer].color;
+            document.getElementById('log-display').innerText = gameState.log;
 
             const dice = document.getElementById('dice-btn');
             dice.innerText = gameState.lastDice || "?";
             
             if (isMyTurn) {
                 dice.classList.add('can-roll');
-                dice.onclick = handleRoll;
+                dice.onclick = triggerRoll;
             } else {
                 dice.classList.remove('can-roll');
                 dice.onclick = null;
-                // Host handles bot turns
+                // Host handles bot logic
                 if (gameState.hostId === userId && !activePlayer) {
-                    setTimeout(handleBotRoll, 2500);
+                    setTimeout(triggerBotRoll, 2000);
                 }
             }
         }
 
-        // Click Handler
-        document.getElementById('join-btn').onclick = async () => {
-            const name = document.getElementById('username').value.trim();
+        // --- BUTTON HANDLERS ---
+        document.getElementById('btn-join-action').onclick = async () => {
+            const input = document.getElementById('username');
+            const name = input.value.trim();
             if (!name || !gameState) return;
-            myName = name;
 
-            const emptyIdx = gameState.slots.findIndex(s => s === null);
-            if (emptyIdx === -1) return;
+            const joinBtn = document.getElementById('btn-join-action');
+            joinBtn.disabled = true;
+            joinBtn.innerText = "TRETE BEI...";
 
-            const newSlots = [...gameState.slots];
-            newSlots[emptyIdx] = { uid: userId, name: myName };
-            
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), {
-                slots: newSlots
-            });
-
-            document.getElementById('login-form').classList.add('hidden');
-            document.getElementById('waiting-room').classList.remove('hidden');
-        };
-
-        document.getElementById('start-btn').onclick = async (e) => {
-            e.preventDefault();
-            console.log("Start klicked");
             try {
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'globalState');
-                await updateDoc(docRef, {
-                    active: true,
-                    log: "Die Tore sind offen!"
+                await runTransaction(db, async (transaction) => {
+                    const sfDoc = await transaction.get(docRef);
+                    const slots = sfDoc.data().slots;
+                    const emptyIdx = slots.findIndex(s => s === null);
+                    
+                    if (emptyIdx === -1) throw "Voll!";
+                    
+                    slots[emptyIdx] = { uid: userId, name: name };
+                    transaction.update(docRef, { slots: slots });
+                    myName = name;
                 });
-            } catch (err) {
-                console.error("Start Error", err);
+
+                document.getElementById('step-join').classList.add('hidden');
+                document.getElementById('step-wait').classList.remove('hidden');
+            } catch (e) {
+                alert(e === "Voll!" ? "Das Spiel ist leider voll." : "Fehler beim Beitreten.");
+                joinBtn.disabled = false;
+                joinBtn.innerText = "DEM PAKT BEITRETEN";
             }
         };
 
-        async function handleRoll() {
-            const v = Math.floor(Math.random() * 6) + 1;
+        document.getElementById('btn-start-action').onclick = async () => {
+            const startBtn = document.getElementById('btn-start-action');
+            startBtn.disabled = true;
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), {
+                    active: true,
+                    log: "Das Grauen beginnt..."
+                });
+            } catch (err) {
+                startBtn.disabled = false;
+            }
+        };
+
+        async function triggerRoll() {
+            const val = Math.floor(Math.random() * 6) + 1;
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), {
-                lastDice: v,
+                lastDice: val,
                 currentPlayer: (gameState.currentPlayer + 1) % 4,
-                log: `${myName} hat eine ${v} gewürfelt.`
+                log: `${myName} würfelt eine ${val}.`
             });
         }
 
-        async function handleBotRoll() {
+        async function triggerBotRoll() {
             if (gameState.slots[gameState.currentPlayer]) return;
-            const v = Math.floor(Math.random() * 6) + 1;
+            const val = Math.floor(Math.random() * 6) + 1;
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), {
-                lastDice: v,
+                lastDice: val,
                 currentPlayer: (gameState.currentPlayer + 1) % 4,
-                log: `Bot ${PLAYERS[gameState.currentPlayer].name} würfelt ${v}.`
+                log: `Bot ${PLAYER_CONFIG[gameState.currentPlayer].name} würfelt eine ${val}.`
             });
         }
 
-        init();
+        bootstrap();
 
-        // 3D Viewport
+        // 3D HINTERGRUND
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
-        camera.position.z = 12;
+        camera.position.z = 15;
         function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
         animate();
     </script>
