@@ -3,261 +3,232 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Multiplayer Horror MÄDN</title>
+    <title>Horror MÄDN Multiplayer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Creepster&family=Nosifer&display=swap');
-        body { margin: 0; overflow: hidden; background: #000; color: #eee; font-family: 'Segoe UI', sans-serif; touch-action: none; }
+        body { margin: 0; overflow: hidden; background: #000; color: #eee; font-family: 'Segoe UI', sans-serif; }
         .nosifer { font-family: 'Nosifer', cursive; }
         .horror-font { font-family: 'Creepster', cursive; }
         
-        #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        .btn-horror { background: #1a0000; border: 2px solid #660000; padding: 15px 30px; cursor: pointer; transition: 0.3s; color: #ff0000; font-family: 'Nosifer'; font-size: 0.8rem; }
+        .btn-horror:hover:not(:disabled) { background: #440000; border-color: #ff0000; box-shadow: 0 0 20px #ff0000; }
+        .btn-horror:disabled { opacity: 0.3; cursor: not-allowed; }
+        
+        .input-horror { background: #0a0a0a; border: 1px solid #444; color: white; padding: 15px; border-radius: 4px; width: 100%; max-width: 320px; text-align: center; margin-bottom: 20px; font-size: 1.2rem; }
+        
+        #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; padding: 25px; }
         .pointer-auto { pointer-events: auto; }
         
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
-        
-        .input-horror { background: #111; border: 1px solid #444; color: white; padding: 12px; border-radius: 4px; outline: none; width: 100%; max-width: 300px; margin-bottom: 20px; }
-        .input-horror:focus { border-color: #ff0000; box-shadow: 0 0 10px #ff0000; }
-        
-        .btn-horror { background: #111; border: 1px solid #444; padding: 12px 24px; cursor: pointer; transition: 0.3s; color: white; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 2px; }
-        .btn-horror:hover:not(:disabled) { border-color: #ff0000; box-shadow: 0 0 15px #ff0000; background: #200; }
-        .btn-horror:disabled { opacity: 0.3; cursor: not-allowed; }
+        .player-card { background: #050505; border: 1px solid #222; padding: 15px; border-radius: 10px; width: 160px; transition: 0.5s; }
+        .player-card.active-border { border-color: #ff0000; box-shadow: 0 0 15px rgba(255,0,0,0.3); }
 
-        #dice-btn { width: 80px; height: 80px; background: #111; border: 2px solid #444; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; cursor: pointer; pointer-events: auto; color: white; }
-        #dice-btn.active { border-color: #ff0000; box-shadow: 0 0 20px #ff0000; animation: pulse 1s infinite; }
-        @keyframes pulse { 50% { transform: scale(1.1); } }
-
-        .player-slot { background: #0a0a0a; border: 1px solid #333; padding: 10px; border-radius: 8px; width: 140px; }
-        .player-slot.active { border-color: #00ff00; background: #051a05; }
+        #dice-btn { 
+            width: 90px; height: 90px; background: #111; border: 3px solid #444; border-radius: 15px;
+            display: flex; align-items: center; justify-content: center; font-size: 3rem; 
+            cursor: pointer; pointer-events: auto; color: white; transition: 0.3s;
+        }
+        #dice-btn.can-roll { border-color: #ff0000; box-shadow: 0 0 25px #ff0000; animation: pulse 1s infinite; }
+        @keyframes pulse { 50% { transform: scale(1.05); } }
     </style>
 </head>
 <body>
 
-    <!-- Start/Lobby Screen -->
+    <!-- LOBBY & LOGIN -->
     <div id="lobby" class="overlay">
-        <h1 class="nosifer text-red-600 text-4xl mb-2">HORROR MÄDN</h1>
-        <p class="horror-font text-zinc-500 text-xl mb-12 tracking-widest">MULTIVERSE EDITION</p>
-        
-        <div id="setup-step">
-            <input type="text" id="player-name" class="input-horror text-center" placeholder="DEIN NAME..." maxlength="12">
-            <button id="join-btn" class="btn-horror nosifer">Beitreten</button>
+        <h1 class="nosifer text-red-600 text-5xl mb-4 tracking-tighter">HORROR MÄDN</h1>
+        <p class="horror-font text-zinc-500 text-2xl mb-12 uppercase tracking-widest">Online Verdammnis</p>
+
+        <div id="login-form" class="w-full flex flex-col items-center">
+            <input type="text" id="username" class="input-horror" placeholder="Dein Name..." maxlength="12">
+            <button id="join-btn" class="btn-horror">Dem Pakt beitreten</button>
         </div>
 
-        <div id="wait-step" class="hidden w-full max-w-2xl">
-            <p class="mb-6 text-zinc-400">Warten auf weitere Opfer...</p>
-            <div id="player-grid" class="flex flex-wrap gap-4 justify-center mb-10">
-                <!-- Slots -->
+        <div id="waiting-room" class="hidden w-full flex flex-col items-center">
+            <div id="slots-container" class="flex flex-wrap gap-4 justify-center mb-10">
+                <!-- Slots generated by JS -->
             </div>
-            <button id="start-game-btn" class="btn-horror nosifer hidden">Spiel Starten</button>
-            <p id="host-msg" class="text-xs text-zinc-600 italic">Nur der Host kann das Spiel starten.</p>
+            <button id="start-btn" class="btn-horror hidden">Qualen beginnen</button>
+            <p id="status-msg" class="text-zinc-600 italic mt-4">Warten auf den Host...</p>
         </div>
     </div>
 
-    <!-- UI Layer -->
-    <div id="ui-layer" style="display:none">
+    <!-- IN-GAME UI -->
+    <div id="ui-layer" class="hidden">
         <div class="flex justify-between items-start pointer-auto">
-            <div class="bg-black/80 border border-zinc-800 p-4 rounded-lg backdrop-blur-md">
-                <h2 id="turn-display" class="nosifer text-red-600 text-sm mb-1">...</h2>
-                <p id="game-log" class="text-[10px] text-zinc-500 italic">Verbunden.</p>
+            <div class="bg-black/90 border border-zinc-800 p-5 rounded-xl backdrop-blur-lg">
+                <h2 id="turn-display" class="nosifer text-red-700 text-lg mb-1">GEISTER SIND DRAN</h2>
+                <div id="log" class="text-xs text-zinc-500 italic max-w-[200px]">Das Spiel beginnt...</div>
             </div>
         </div>
-        
-        <div class="flex justify-center mb-12">
+
+        <div class="flex justify-center mb-16">
             <div id="dice-btn" class="horror-font">?</div>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, collection, query, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // Global State & Firebase Init
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'horror-maedn-v2';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'horror-maedn-v3';
 
-        let userId = null;
-        let myName = "";
-        let gameState = null;
-        let mySlotIndex = -1;
-
+        let userId, myName, gameState, mySlot = -1;
         const PLAYERS = [
-            { id: 0, name: "Geister", color: "#ffffff" },
-            { id: 1, name: "Bibeln", color: "#00f0ff" },
-            { id: 2, name: "Schädel", color: "#bc13fe" },
-            { id: 3, name: "Kreuze", color: "#ff0033" }
+            { name: "Geister", color: "#ffffff" },
+            { name: "Bibeln", color: "#00f0ff" },
+            { name: "Schädel", color: "#bc13fe" },
+            { name: "Kreuze", color: "#ff0033" }
         ];
 
-        // --- AUTH & LOGIN ---
-        const init = async () => {
-            const userCred = await signInAnonymously(auth);
-            userId = userCred.user.uid;
-            syncGameState();
-        };
-
-        const syncGameState = () => {
-            const gameDoc = doc(db, 'artifacts', appId, 'public', 'data', 'globalState');
-            onSnapshot(gameDoc, (snapshot) => {
-                if (!snapshot.exists()) {
-                    resetServerState();
-                    return;
-                }
-                gameState = snapshot.data();
-                processStateUpdate();
-            }, (err) => console.error("Sync Error:", err));
-        };
-
-        const resetServerState = async () => {
-            const emptyState = {
-                active: false,
-                currentPlayer: 0,
-                slots: [null, null, null, null], // Enthält {uid, name} oder null
-                pieces: [[-1,-1,-1,-1], [-1,-1,-1,-1], [-1,-1,-1,-1], [-1,-1,-1,-1]],
-                lastDice: 0,
-                hostId: null,
-                log: "Lobby erstellt."
-            };
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), emptyState);
-        };
-
-        // --- LOBBY LOGIC ---
-        document.getElementById('join-btn').onclick = async () => {
-            const nameInput = document.getElementById('player-name').value.trim();
-            if (!nameInput) return;
-            myName = nameInput;
-
-            const emptyIndex = gameState.slots.findIndex(s => s === null);
-            if (emptyIndex === -1) {
-                alert("Spiel ist voll!");
-                return;
+        // STARTUP
+        async function start() {
+            const cred = await signInAnonymously(auth);
+            userId = cred.user.uid;
+            
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'globalState');
+            
+            // Initialen Status prüfen
+            const snap = await getDoc(docRef);
+            if (!snap.exists()) {
+                await setDoc(docRef, {
+                    active: false,
+                    slots: [null, null, null, null],
+                    currentPlayer: 0,
+                    lastDice: 0,
+                    hostId: userId,
+                    log: "Lobby bereit."
+                });
             }
 
-            const newSlots = [...gameState.slots];
-            newSlots[emptyIndex] = { uid: userId, name: myName };
-            
-            const updates = { slots: newSlots };
-            if (!gameState.hostId) updates.hostId = userId;
-
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), updates);
-            
-            document.getElementById('setup-step').classList.add('hidden');
-            document.getElementById('wait-step').classList.remove('hidden');
-        };
-
-        document.getElementById('start-game-btn').onclick = async () => {
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), {
-                active: true,
-                log: "Das Spiel hat begonnen!"
+            // Realtime Listener
+            onSnapshot(docRef, (s) => {
+                gameState = s.data();
+                renderUI();
             });
-        };
+        }
 
-        const processStateUpdate = () => {
-            // Lobby Update
-            const grid = document.getElementById('player-grid');
-            grid.innerHTML = '';
-            
+        function renderUI() {
+            if (!gameState) return;
+
+            // Lobby Slots
+            const container = document.getElementById('slots-container');
+            container.innerHTML = '';
             gameState.slots.forEach((slot, i) => {
                 const div = document.createElement('div');
-                div.className = `player-slot ${slot?.uid === userId ? 'active' : ''}`;
+                div.className = `player-card ${slot?.uid === userId ? 'active-border' : ''}`;
                 div.innerHTML = `
-                    <p class="text-[10px] text-zinc-500">Slot ${i+1}</p>
-                    <p class="font-bold truncate" style="color:${PLAYERS[i].color}">${slot ? slot.name : 'OFFEN'}</p>
+                    <p class="text-[9px] text-zinc-600 uppercase mb-1">Slot ${i+1}</p>
+                    <p class="nosifer text-xs" style="color:${PLAYERS[i].color}">${slot ? slot.name : 'LEER'}</p>
                 `;
-                grid.appendChild(div);
-                if (slot?.uid === userId) mySlotIndex = i;
+                container.appendChild(div);
+                if (slot?.uid === userId) mySlot = i;
             });
 
-            // Host Controls
+            // Start Button Logic
+            const startBtn = document.getElementById('start-btn');
             if (gameState.hostId === userId && !gameState.active) {
-                document.getElementById('start-game-btn').classList.remove('hidden');
-                document.getElementById('host-msg').innerText = "Du bist der Host.";
+                startBtn.classList.remove('hidden');
+                document.getElementById('status-msg').innerText = "Du bist der Zeremonienmeister (Host).";
             }
 
-            // Spielstart
+            // Transition to Game
             if (gameState.active) {
-                document.getElementById('lobby').style.display = 'none';
-                document.getElementById('ui-layer').style.display = 'flex';
-                updateInGameUI();
+                document.getElementById('lobby').classList.add('hidden');
+                document.getElementById('ui-layer').classList.remove('hidden');
+                updateGameScreen();
             }
-        };
+        }
 
-        // --- IN-GAME LOGIC ---
-        const updateInGameUI = () => {
-            const isMyTurn = gameState.currentPlayer === mySlotIndex;
-            const turnDisplay = document.getElementById('turn-display');
-            const currentPlayerName = gameState.slots[gameState.currentPlayer]?.name || `Bot (${PLAYERS[gameState.currentPlayer].name})`;
+        function updateGameScreen() {
+            const isMyTurn = gameState.currentPlayer === mySlot;
+            const display = document.getElementById('turn-display');
+            const activePlayerName = gameState.slots[gameState.currentPlayer]?.name || `Bot (${PLAYERS[gameState.currentPlayer].name})`;
             
-            turnDisplay.innerText = isMyTurn ? "DU BIST DRAN" : `${currentPlayerName.toUpperCase()} IST DRAN`;
-            turnDisplay.style.color = PLAYERS[gameState.currentPlayer].color;
-            document.getElementById('game-log').innerText = gameState.log;
+            display.innerText = (isMyTurn ? "DU BIST DRAN" : activePlayerName + " IST DRAN").toUpperCase();
+            display.style.color = PLAYERS[gameState.currentPlayer].color;
+            document.getElementById('log').innerText = gameState.log;
 
             const dice = document.getElementById('dice-btn');
+            dice.innerText = gameState.lastDice || "?";
+            
             if (isMyTurn) {
-                dice.classList.add('active');
-                dice.onclick = rollDice;
+                dice.classList.add('can-roll');
+                dice.onclick = doRoll;
             } else {
-                dice.classList.remove('active');
+                dice.classList.remove('can-roll');
                 dice.onclick = null;
-                dice.innerText = gameState.lastDice || "?";
-                
-                // Bot Trigger (Nur Host berechnet Bots)
-                if (gameState.hostId === userId && gameState.slots[gameState.currentPlayer] === null) {
-                    setTimeout(handleBotTurn, 2000);
+                // Host handles bots
+                if (gameState.hostId === userId && !gameState.slots[gameState.currentPlayer]) {
+                    setTimeout(doBotRoll, 2000);
                 }
             }
+        }
+
+        // ACTIONS
+        document.getElementById('join-btn').onclick = async () => {
+            const name = document.getElementById('username').value.trim();
+            if (!name) return;
+            myName = name;
+
+            const idx = gameState.slots.findIndex(s => s === null);
+            if (idx === -1) return alert("Hölle ist voll!");
+
+            const newSlots = [...gameState.slots];
+            newSlots[idx] = { uid: userId, name: myName };
+            
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), {
+                slots: newSlots
+            });
+
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('waiting-room').classList.remove('hidden');
         };
 
-        const rollDice = async () => {
-            const val = Math.floor(Math.random() * 6) + 1;
-            document.getElementById('dice-btn').innerText = val;
-            
-            // Hier würde normalerweise die Zug-Validierung folgen.
-            // Zur Vereinfachung für diesen Prototyp: Nur der Würfelwurf wird gesynct.
+        document.getElementById('start-btn').onclick = async () => {
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), {
-                lastDice: val,
-                currentPlayer: (gameState.currentPlayer + 1) % 4,
-                log: `${myName} hat eine ${val} gewürfelt.`
+                active: true,
+                log: "Die Tore zur Unterwelt sind offen!"
             });
         };
 
-        const handleBotTurn = async () => {
-            if (gameState.slots[gameState.currentPlayer] !== null) return;
-            const val = Math.floor(Math.random() * 6) + 1;
+        async function doRoll() {
+            const v = Math.floor(Math.random() * 6) + 1;
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), {
-                lastDice: val,
+                lastDice: v,
                 currentPlayer: (gameState.currentPlayer + 1) % 4,
-                log: `Bot ${PLAYERS[gameState.currentPlayer].name} würfelt eine ${val}.`
+                log: `${myName} würfelt eine ${v}.`
             });
-        };
+        }
 
-        init();
+        async function doBotRoll() {
+            if (gameState.slots[gameState.currentPlayer]) return;
+            const v = Math.floor(Math.random() * 6) + 1;
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'globalState'), {
+                lastDice: v,
+                currentPlayer: (gameState.currentPlayer + 1) % 4,
+                log: `Bot ${PLAYERS[gameState.currentPlayer].name} würfelt eine ${v}.`
+            });
+        }
 
-        // 3D Engine Setup (Grundgerüst)
-        let scene, camera, renderer;
-        const init3D = () => {
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.body.appendChild(renderer.domElement);
-            camera.position.z = 15;
-            
-            const light = new THREE.PointLight(0xffffff, 1, 100);
-            light.position.set(10, 10, 10);
-            scene.add(light);
-            scene.add(new THREE.AmbientLight(0x404040));
-            
-            animate();
-        };
-        const animate = () => {
-            requestAnimationFrame(animate);
-            renderer.render(scene, camera);
-        };
-        init3D();
+        start();
+
+        // Basic Three.js Scene
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        camera.position.z = 10;
+        function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
+        animate();
     </script>
 </body>
 </html>
